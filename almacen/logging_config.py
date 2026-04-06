@@ -17,6 +17,10 @@ LOG_DIR.mkdir(exist_ok=True)
 AUDIT_DIR = LOG_DIR / 'audit'
 AUDIT_DIR.mkdir(exist_ok=True)
 
+# Crear directorio para logs de seguridad
+SECURITY_DIR = LOG_DIR / 'security'
+SECURITY_DIR.mkdir(exist_ok=True)
+
 
 class ColoredFormatter(logging.Formatter):
     """Formateador con colores para consola."""
@@ -27,6 +31,7 @@ class ColoredFormatter(logging.Formatter):
         'WARNING': '\033[93m',    # Yellow
         'ERROR': '\033[91m',      # Red
         'CRITICAL': '\033[95m',   # Magenta
+        'SECURITY': '\033[91m',   # Red para seguridad
         'RESET': '\033[0m',       # Reset
     }
     
@@ -56,6 +61,10 @@ LOGGING_CONFIG = {
         },
         'audit': {
             'format': '%(asctime)s | USUARIO: %(user)s | ACCIÓN: %(action)s | DETALLES: %(details)s',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'security': {
+            'format': '%(asctime)s | %(levelname)s | [SECURITY] | IP: %(ip)s | USUARIO: %(user)s | EVENTO: %(event)s | DETALLES: %(details)s',
             'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
@@ -98,6 +107,16 @@ LOGGING_CONFIG = {
             'level': 'INFO',
             'formatter': 'detailed',
         },
+        
+        # Archivo de seguridad (EVENTOS CRÍTICOS)
+        'security_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(SECURITY_DIR / 'security.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 30,      # Guardar más tiempo
+            'level': 'WARNING',
+            'formatter': 'security',
+        },
     },
     
     'loggers': {
@@ -110,7 +129,7 @@ LOGGING_CONFIG = {
         
         # Logger para módulo de login
         'login': {
-            'handlers': ['console', 'file', 'error_file', 'audit_file'],
+            'handlers': ['console', 'file', 'error_file', 'audit_file', 'security_file'],
             'level': 'DEBUG',
             'propagate': False,
         },
@@ -126,6 +145,13 @@ LOGGING_CONFIG = {
         'django': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        
+        # Logger específico de seguridad
+        'security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'WARNING',
             'propagate': False,
         },
     },
@@ -144,5 +170,11 @@ def setup_logging():
     logger.info("=" * 60)
     logger.info("🚀 Sistema de logging inicializado correctamente")
     logger.info(f"📁 Directorio de logs: {LOG_DIR}")
+    logger.info(f"🔒 Directorio de seguridad: {SECURITY_DIR}")
     logger.info("=" * 60)
+    
+    # Logger de seguridad
+    security_logger = logging.getLogger('security')
+    security_logger.info("Sistema de seguridad activado")
+    
     return logger
