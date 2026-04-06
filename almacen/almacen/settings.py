@@ -159,4 +159,20 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
     ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'productos.throttles.APIUserRateThrottle',
+        'productos.throttles.APIAnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'api_user': '100/min',
+        'api_anon': '20/min',
+    }
+}
+
+# Configuración de caché para throttling
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'almacen-locmem-cache',
+    }
 }

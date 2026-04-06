@@ -98,6 +98,16 @@ LOGGING_CONFIG = {
             'level': 'INFO',
             'formatter': 'detailed',
         },
+        
+        # Archivo de seguridad (eventos maliciosos/suspechosos)
+        'security_file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(LOG_DIR / 'security.log'),
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 10,
+            'level': 'WARNING',
+            'formatter': 'detailed',
+        },
     },
     
     'loggers': {
@@ -126,6 +136,13 @@ LOGGING_CONFIG = {
         'django': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
+            'propagate': False,
+        },
+        
+        # Logger de seguridad (eventos maliciosos/intentos de ataque)
+        'security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'WARNING',
             'propagate': False,
         },
     },

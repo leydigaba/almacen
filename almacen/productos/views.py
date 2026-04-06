@@ -1,5 +1,5 @@
 """
-Vistas para el módulo de productos - UI Web + API REST con logging profesional.
+Vistas para el módulo de productos - UI Web + API REST con logging profesional y seguridad.
 """
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -13,11 +13,13 @@ from rest_framework.pagination import PageNumberPagination
 
 from .models import Producto
 from .serializers import ProductoSerializer
+from .throttles import APIUserRateThrottle, APIAnonRateThrottle
 import logging
 import uuid
 from datetime import datetime
 
 logger = logging.getLogger('api')
+security_logger = logging.getLogger('security')
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -31,11 +33,13 @@ class ProductoViewSet(viewsets.ModelViewSet):
     """
     API REST para operaciones CRUD de Productos.
     Endpoints: GET /api/productos/, POST /api/productos/, etc.
+    Incluye: Rate limiting, detección de acceso no autorizado, validación de seguridad.
     """
     
     queryset = Producto.objects.all()
     serializer_class = ProductoSerializer
     pagination_class = StandardResultsSetPagination
+    throttle_classes = [APIUserRateThrottle, APIAnonRateThrottle]
     
     def get_request_id(self):
         """Genera un ID único para rastrear la solicitud."""
@@ -47,10 +51,33 @@ class ProductoViewSet(viewsets.ModelViewSet):
             return self.request.user.username
         return "Anonymous"
     
+    def get_client_ip(self):
+        """Obtiene la IP del cliente."""
+        x_forwarded_for = self.request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = self.request.META.get('REMOTE_ADDR')
+        return ip
+    
+    def _check_authentication(self, request_id, endpoint):
+        """Verifica si el usuario está autenticado. Si no, loguea como WARNING."""
+        if not self.request.user.is_authenticated:
+            client_ip = self.get_client_ip()
+            security_logger.warning(
+                f"[{request_id}] 🚨 ACCESO NO AUTENTICADO | Endpoint: {endpoint} | "
+                f"IP: {client_ip} | Método: {self.request.method}"
+            )
+            return False
+        return True
+    
     def list(self, request, *args, **kwargs):
         """GET /api/productos/ - Obtiene lista de productos."""
         request_id = self.get_request_id()
         user = self.get_user_info()
+        
+        # Validar autenticación
+        self._check_authentication(request_id, '/api/productos/')
         
         logger.info(f"[{request_id}] ▶ INICIO GET /api/productos | Usuario: {user}")
         
@@ -74,6 +101,10 @@ class ProductoViewSet(viewsets.ModelViewSet):
         """POST /api/productos/ - Crea un nuevo producto."""
         request_id = self.get_request_id()
         user = self.get_user_info()
+        client_ip = self.get_client_ip()
+        
+        # Validar autenticación
+        self._check_authentication(request_id, '/api/productos/')
         
         logger.info(f"[{request_id}] ▶ INICIO POST /api/productos | "
                    f"Datos: nombre={request.data.get('nombre')} | Usuario: {user}")
@@ -82,6 +113,10 @@ class ProductoViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             
             if not serializer.is_valid():
+                security_logger.warning(
+                    f"[{request_id}] ⚠️ BAD REQUEST POST /api/productos | "
+                    f"Errores: {serializer.errors} | IP: {client_ip} | Usuario: {user}"
+                )
                 logger.warning(f"[{request_id}] ⚠️ VALIDACIÓN FALLIDA POST /api/productos | "
                              f"Errores: {serializer.errors} | Usuario: {user}")
                 return Response(
@@ -109,6 +144,9 @@ class ProductoViewSet(viewsets.ModelViewSet):
         user = self.get_user_info()
         producto_id = kwargs.get('pk')
         
+        # Validar autenticación
+        self._check_authentication(request_id, f'/api/productos/{producto_id}/')
+        
         logger.info(f"[{request_id}] ▶ INICIO GET /api/productos/{producto_id}/ | Usuario: {user}")
         
         try:
@@ -130,6 +168,10 @@ class ProductoViewSet(viewsets.ModelViewSet):
         request_id = self.get_request_id()
         user = self.get_user_info()
         producto_id = kwargs.get('pk')
+        client_ip = self.get_client_ip()
+        
+        # Validar autenticación
+        self._check_authentication(request_id, f'/api/productos/{producto_id}/')
         
         logger.info(f"[{request_id}] ▶ INICIO PUT /api/productos/{producto_id}/ | "
                    f"Datos: {request.data} | Usuario: {user}")
@@ -141,6 +183,10 @@ class ProductoViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(instance, data=request.data, partial=False)
             
             if not serializer.is_valid():
+                security_logger.warning(
+                    f"[{request_id}] ⚠️ BAD REQUEST PUT /api/productos/{producto_id}/ | "
+                    f"Errores: {serializer.errors} | IP: {client_ip} | Usuario: {user}"
+                )
                 logger.warning(f"[{request_id}] ⚠️ VALIDACIÓN FALLIDA PUT /api/productos/{producto_id}/ | "
                              f"Errores: {serializer.errors} | Usuario: {user}")
                 return Response(
@@ -167,11 +213,19 @@ class ProductoViewSet(viewsets.ModelViewSet):
         request_id = self.get_request_id()
         user = self.get_user_info()
         producto_id = kwargs.get('pk')
+        client_ip = self.get_client_ip()
+        
+        # Validar autenticación
+        self._check_authentication(request_id, f'/api/productos/{producto_id}/')
         
         try:
             instance = self.get_object()
             nombre_producto = instance.nombre
             
+            security_logger.warning(
+                f"[{request_id}] 🚨 ACCIÓN DESTRUCTIVA DELETE | Producto: {nombre_producto} | "
+                f"IP: {client_ip} | Usuario: {user}"
+            )
             logger.warning(f"[{request_id}] ⚠️ INICIO DELETE /api/productos/{producto_id}/ | "
                           f"Se eliminará: {nombre_producto} | Usuario: {user}")
             
