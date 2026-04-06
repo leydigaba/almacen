@@ -12,21 +12,24 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-import logging
-import logging.config
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Crear directorio de logs si no existe
-LOG_DIR = BASE_DIR / 'logs'
-LOG_DIR.mkdir(exist_ok=True)
+# Importar configuración de logging centralizada
+sys.path.insert(0, str(BASE_DIR))
+from logging_config import setup_logging, LOGGING_CONFIG
 
+# Inicializar logging
+setup_logging()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = "django-insecure-25^qxoqgr*gjkp00^1hek!n1u&-v0&m(#k(obf^11!b&mbge1x"
+
 SECRET_KEY = "django-insecure-l%nt-o2icorr2)sm^$+&42v5j9f@sd1c-ppyik+kpvdbv**n3w"
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -44,7 +47,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "login", # modulo loginm
+    'rest_framework',
+    'productos',
+    "login",
 ]
 
 MIDDLEWARE = [
@@ -110,6 +115,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
+LANGUAGE_CODE = "en-us"
+
+TIME_ZONE = "UTC"
+
+USE_I18N = True
+
 LANGUAGE_CODE = "es-mx"
 TIME_ZONE = "America/Mexico_City"
 USE_I18N = True
@@ -133,73 +144,19 @@ LOGOUT_REDIRECT_URL = 'login'
 
 
 # ==================================================
-# CONFIGURACIÓN PROFESIONAL DE LOGGING
+# CONFIGURACIÓN DE LOGGING (centralizada en logging_config.py)
 # ==================================================
-
 LOGGING_CONFIG = None
+LOGGING = LOGGING_CONFIG
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} - {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '[{levelname}] {asctime} - {message}',
-            'style': '{',
-        },
-        'detailed': {
-            'format': '[{levelname}] {asctime} | {module}.{funcName}:{lineno} | {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
-            'formatter': 'simple',
-        },
-        'file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': str(LOG_DIR / 'app.log'),
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 5,
-            'level': 'DEBUG',
-            'formatter': 'detailed',
-        },
-        'error_file': {
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': str(LOG_DIR / 'errors.log'),
-            'maxBytes': 10485760,  # 10MB
-            'backupCount': 5,
-            'level': 'ERROR',
-            'formatter': 'detailed',
-        },
-    },
-    'loggers': {
-        'login': {
-            'handlers': ['console', 'file', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'django': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
+# ==================================================
+# CONFIGURACIÓN DE REST FRAMEWORK
+# ==================================================
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,
+    'DEFAULT_FILTER_BACKENDS': ['rest_framework.filters.SearchFilter'],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
 }
-
-# Aplicar configuración de logging
-logging.config.dictConfig(LOGGING)
-
-# Logger principal para el proyecto
-logger = logging.getLogger('login')
-logger.info("🚀 Sistema de logging inicializado correctamente")
-
-# Configuración de Login
-LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/login/dashboard/'
-LOGOUT_REDIRECT_URL = '/login/'
